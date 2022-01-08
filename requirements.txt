@@ -1,2 +1,4 @@
 python-dotenv==0.19.2
+requests==2.26.0
 tweepy==4.4.0
+twint==2.1.21

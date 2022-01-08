@@ -1,21 +1,49 @@
 import os
+import pathlib
+import time
+import requests
 import tweepy
 from dotenv import load_dotenv
-
-#  find changes in new followings with simple scraping
-#  must scrape all new followings of important accounts
-#  must note similarities in new followings
+import database as db
+from scraper import scrape
 
 load_dotenv()
 bearer = os.getenv("BEARER")
-
 client = tweepy.Client(bearer_token=bearer)
 
-user_id = 1092107522100600837  # id of @JordiJansen101
+'''
+initialize database.
+'''
+if not os.path.isfile("koiosint.db"):
+    db.create_table()
 
-#  https://docs.tweepy.org/en/stable/client.html#users
-#  can pass friends_request.token
-friends_request = client.get_users_following(id=user_id, max_results=1000)
+'''
+import users from users.txt. The file should contain all users that we want to scrape, each on newline.
+for now only users with less than 1000 friends (followings).
+strip() is to remove newline character.
+'''
+with open('users.txt', 'r') as f:
+    users = [line.strip() for line in f]
 
-for i in friends_request[0]:
-    print(i)
+
+while True:
+    for username in users:
+        if len(db.query_user(username)) <= 0:
+            scrape.get_users_friends(username)
+
+        friends_cache = db.query_friends(username)
+        friends_amount = scrape.get_users_friends_amount(username)
+
+        if len(friends_cache) != friends_amount:
+            old_list = friends_cache
+            scrape.get_users_friends(username)
+            new_list = db.query_friends(username)
+            new_users = list(set(new_list) - set(old_list))
+            removed_users = list(set(old_list) - set(new_list))
+
+            print(username)
+            print("new users: " + str(new_users))
+            print(("removed users: " + str(removed_users)))
+
+    print("SLEEPING")
+    time.sleep(900)  # 15min
